@@ -6,7 +6,7 @@
 	}
 	SubShader
 	{
-		pass
+		Pass
 		{
 			CGPROGRAM
 			
@@ -14,13 +14,13 @@
 			#pragma fragment frag
 			
 			#include "UnityCG.cginc"
+			#include "Lighting.cginc"
 			
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
 			
-			// sampler2D unity_Lightmap;//若开启光照贴图,系统默认填入
-			// flaot4 unity_LightmapST;//与上面同理
-			
+			 // sampler2D unity_Lightmap;//光照贴图,系统built-in的变量
+			 // flaot4 unity_LightmapST;//与上面同理
 			struct v2f
 			{
 				float4 pos: SV_POSITION;
@@ -51,20 +51,22 @@
 			
 			half4 frag(v2f v): SV_TARGET
 			{
-				float3 lightmapColor = DecodeLightmap(UNITY_SAMPLE_TEX2D(unity_Lightmap, v.uv2));
 				half4 col = tex2D(_MainTex, v.uv);
-				
-				col.rgb *= lightmapColor;
+
+				//float3 lightmapColor = DecodeLightmap(UNITY_SAMPLE_TEX2D(unity_Lightmap, v.uv2));
+				//col.rgb *= lightmapColor;
+				col.rgb *= _LightColor0;
 				
 				float depth = v.depth.x / v.depth.y;
-				half4 dcol = tex2Dproj(depthTexture, v.proj);
+				float4 dcol = tex2Dproj(depthTexture, v.proj);
 				float d = DecodeFloatRGBA(dcol);
 				float shadowScale = 1;
-				
-				if (depth > d)
+				//不知道为什么 只能 方向计算 了
+				if (d > depth)
 				{
-					shadowScale = 0.55;
+					shadowScale = 0.8;
 				}
+
 				return col*shadowScale;
 			}
 			

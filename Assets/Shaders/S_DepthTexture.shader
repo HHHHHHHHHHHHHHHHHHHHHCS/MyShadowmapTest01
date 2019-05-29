@@ -1,4 +1,4 @@
-﻿Shader "HCS/S_DeapthTexture"
+﻿Shader "HCS/S_DepthTexture"
 {
 	Properties
 	{
@@ -32,20 +32,19 @@
 				float2 depth: TEXCOORD1;
 			};
 			
-			sampler2D _MainTex;
-			float4 _MainTex_ST;
 			
 			v2f vert(appdata v)
 			{
 				v2f o;
 				o.vertex = UnityObjectToClipPos(v.vertex);
+				o.uv = v.uv;
 				o.depth = o.vertex.zw;
 				return o;
 			}
 
 			half4 frag(v2f i):SV_TARGET
 			{
-				float depth = i.depth.x/i.depth.y;
+				float depth = i.depth.x/i.depth.y;//如果在顶点阶段进行计算可能出现错误
 				half4 col = EncodeFloatRGBA(depth);
 				return col;
 			}
