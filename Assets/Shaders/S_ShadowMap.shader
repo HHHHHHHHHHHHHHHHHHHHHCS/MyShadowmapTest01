@@ -60,12 +60,7 @@
 				float depth = v.depth.x / v.depth.y;
 				float4 dcol = tex2Dproj(depthTexture, v.proj);
 				float d = DecodeFloatRGBA(dcol);
-				float shadowScale = 1;
-				//不知道为什么 只能 方向计算 了
-				if (d > depth)
-				{
-					shadowScale = 0.8;
-				}
+				float shadowScale = 1 - max(d - depth, 0)*0.5;
 
 				return col*shadowScale;
 			}

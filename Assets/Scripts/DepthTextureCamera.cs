@@ -23,6 +23,7 @@ public class DepthTextureCamera : MonoBehaviour
         cam.enabled = false;
         cam.depth = 2;
         cam.clearFlags = CameraClearFlags.SolidColor;
+        //这个黑色很重要
         cam.backgroundColor = new Color(0, 0, 0, 0);
 
         cam.aspect = 1;
@@ -42,6 +43,7 @@ public class DepthTextureCamera : MonoBehaviour
         sm.SetRow(2, new Vector4(0, 0, 0.5f, 0.5f));
         sm.SetRow(3, new Vector4(0, 0, 0, 1));
 
+        //阴影的清晰度
         rt = new RenderTexture(1024, 1024, 0) {wrapMode = TextureWrapMode.Clamp};
         cam.targetTexture = rt;
         cam.SetReplacementShader(Shader.Find("HCS/S_DepthTexture"), "RenderType");
