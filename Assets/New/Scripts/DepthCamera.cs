@@ -4,11 +4,12 @@ using UnityEngine;
 
 public class DepthCamera : MonoBehaviour
 {
+
+    private Camera cam;
+
     private void Start()
     {
-        Shader shader = Shader.Find("");
-
-        Camera cam = GetComponent<Camera>();
+        cam = GetComponent<Camera>();
 
         cam.depthTextureMode = DepthTextureMode.Depth;
         cam.clearFlags = CameraClearFlags.Skybox;
@@ -16,4 +17,5 @@ public class DepthCamera : MonoBehaviour
         cam.renderingPath = RenderingPath.Forward;
         cam.SetReplacementShader(Shader.Find("HCS/S_DepthMap"), "RenderType");
     }
+
 }
