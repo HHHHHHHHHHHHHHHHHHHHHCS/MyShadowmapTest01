@@ -307,3 +307,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c35461b488c1d334f833c3658de72d7e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dirLight: {fileID: 0}
+  shadowResolution: 1
+  shadowCaster: {fileID: 0}
