@@ -83,12 +83,12 @@ public struct FrustumCorners
     /// <returns></returns>
     public FrustumCorners WorldToLocal_New(Transform ts)
     {
-        FrustumCorners fc =  New();
+        FrustumCorners fc = New();
 
         for (int i = 0; i < 4; i++)
         {
-            nearCorners[i] = ts.InverseTransformPoint(nearCorners[i]);
-            farCorners[i] = ts.InverseTransformPoint(farCorners[i]);
+            fc.nearCorners[i] = ts.InverseTransformPoint(nearCorners[i]);
+            fc.farCorners[i] = ts.InverseTransformPoint(farCorners[i]);
         }
 
         return fc;
@@ -151,14 +151,17 @@ public class CSMMain : MonoBehaviour
     /// </summary>
     private const int lodLevel = 4;
 
-    //Unity的QualitySettings里提供了对相机视锥的分割设置
+    /// <summary>
+    /// Unity的QualitySettings里提供了对相机视锥的分割设置
+    /// </summary>
     private readonly float[] lodSplits = {0, 0.067f, 0.133f, 0.267f, 0.533f};
 
-
+    /// <summary>
+    /// 灯光
+    /// </summary>
     public Light dirLight;
-    Camera dirLightCamera;
 
-    public int shadowResolution = 1;
+
     public Shader shadowCaster = null;
 
     /// <summary>
@@ -176,7 +179,12 @@ public class CSMMain : MonoBehaviour
     /// </summary>
     private Transform[] dirLightSplitTss = new Transform[4];
 
+    /// <summary>
+    /// Lod存的世界空间到阴影的矩阵
+    /// </summary>
     private List<Matrix4x4> world2ShadowMats = new List<Matrix4x4>(4);
+
+    private Camera dirLightCamera;
     private RenderTexture[] depthTextures = new RenderTexture[4];
     private float[] splitNears, splitsFars;
 
@@ -189,7 +197,6 @@ public class CSMMain : MonoBehaviour
 
         InitFrustumCorners();
     }
-
 
     private void Update()
     {
@@ -213,9 +220,11 @@ public class CSMMain : MonoBehaviour
             {
                 SetLightCameraLod(i);
 
+                //渲染阴影RT
                 dirLightCamera.targetTexture = depthTextures[i];
                 dirLightCamera.RenderWithShader(shadowCaster, "");
 
+                //投影矩阵转换到相距下面
                 Matrix4x4 projectionMatrix = GL.GetGPUProjectionMatrix(dirLightCamera.projectionMatrix, false);
                 world2ShadowMats.Add(projectionMatrix * dirLightCamera.worldToCameraMatrix);
             }
@@ -252,19 +261,23 @@ public class CSMMain : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 创建RT
+    /// </summary>
     private void CreateRenderTexture()
     {
         RenderTextureFormat rtFormat = RenderTextureFormat.Default;
-        if (!SystemInfo.SupportsRenderTextureFormat(rtFormat))
-            rtFormat = RenderTextureFormat.Default;
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < lodLevel; i++)
         {
             depthTextures[i] = new RenderTexture(1024, 1024, 24, rtFormat);
             Shader.SetGlobalTexture("_gShadowMapTexture" + i, depthTextures[i]);
         }
     }
 
+    /// <summary>
+    /// 创建灯光Camera
+    /// </summary>
     public Camera CreateDirLightCamera()
     {
         GameObject goLightCamera = new GameObject("Directional Light Camera");
@@ -276,7 +289,7 @@ public class CSMMain : MonoBehaviour
         LightCamera.orthographic = true;
         LightCamera.enabled = false;
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < lodLevel; i++)
         {
             dirLightSplitTss[i] = new GameObject("SplitGo_" + i).transform;
         }
@@ -305,11 +318,10 @@ public class CSMMain : MonoBehaviour
             splitsFars[i] = Mathf.Lerp(near, far, amount + lodSplits[i + 1]);
         }
 
-
-        //Shader.SetGlobalVector("_gLightSplitsNear",
-        //    new Vector4(_LightSplitsNear[0], _LightSplitsNear[1], _LightSplitsNear[2], _LightSplitsNear[3]));
-        //Shader.SetGlobalVector("_gLightSplitsFar",
-        //    new Vector4(_LightSplitsFar[0], _LightSplitsFar[1], _LightSplitsFar[2], _LightSplitsFar[3]));
+        Shader.SetGlobalVector("_gLightSplitsNear",
+            new Vector4(splitNears[0], splitNears[1], splitNears[2], splitNears[3]));
+        Shader.SetGlobalVector("_gLightSplitsFar",
+            new Vector4(splitsFars[0], splitsFars[1], splitsFars[2], splitsFars[3]));
 
         for (int i = 0; i < lodLevel; i++)
         {
@@ -323,7 +335,7 @@ public class CSMMain : MonoBehaviour
     }
 
     /// <summary>
-    /// 初始化灯光摄像机的裁面顶点 和 切割体们
+    /// 初始化阴影包围盒
     /// </summary>
     void InitLightCameraSplitFCS()
     {
@@ -337,7 +349,7 @@ public class CSMMain : MonoBehaviour
             lightCamera_fcs[i] = mainCamera_fcs[i].WorldToLocal_New(splitTs);
             lightCamera_fcs[i].RecalcBox();
 
-            //设置分割体的位置和旋转
+            //设置分割体的位置和旋转 lightCamera_fcs 这时候是局部坐标  要转换到世界坐标
             splitTs.transform.position = splitTs.transform.TransformPoint(lightCamera_fcs[i].nearCenter);
             splitTs.transform.rotation = dirLight.transform.rotation;
         }
@@ -358,7 +370,6 @@ public class CSMMain : MonoBehaviour
         dirLightCamera.aspect = lightCamera_fcs[index].aspect;
 
         dirLightCamera.orthographicSize = lightCamera_fcs[index].orthographicSize;
-
     }
 
 
@@ -367,30 +378,30 @@ public class CSMMain : MonoBehaviour
         if (dirLightCamera == null)
             return;
 
-        FrustumCorners[] fcs = new FrustumCorners[lodLevel];
         for (int i = 0; i < lodLevel; i++)
         {
             Gizmos.color = Color.white;
             Gizmos.DrawLine(mainCamera_fcs[i].nearCorners[1], mainCamera_fcs[i].nearCorners[2]);
 
-            fcs[i] = lightCamera_fcs[i].LocalToWorld_New(dirLightSplitTss[i]);
+            var fcs = lightCamera_fcs[i].LocalToWorld_New(dirLightSplitTss[i]);
+
 
             Gizmos.color = Color.red;
-            Gizmos.DrawLine(fcs[i].nearCorners[0], fcs[i].nearCorners[1]);
-            Gizmos.DrawLine(fcs[i].nearCorners[1], fcs[i].nearCorners[2]);
-            Gizmos.DrawLine(fcs[i].nearCorners[2], fcs[i].nearCorners[3]);
-            Gizmos.DrawLine(fcs[i].nearCorners[3], fcs[i].nearCorners[0]);
+            Gizmos.DrawLine(fcs.nearCorners[0], fcs.nearCorners[1]);
+            Gizmos.DrawLine(fcs.nearCorners[1], fcs.nearCorners[2]);
+            Gizmos.DrawLine(fcs.nearCorners[2], fcs.nearCorners[3]);
+            Gizmos.DrawLine(fcs.nearCorners[3], fcs.nearCorners[0]);
 
             Gizmos.color = Color.green;
-            Gizmos.DrawLine(fcs[i].farCorners[0], fcs[i].farCorners[1]);
-            Gizmos.DrawLine(fcs[i].farCorners[1], fcs[i].farCorners[2]);
-            Gizmos.DrawLine(fcs[i].farCorners[2], fcs[i].farCorners[3]);
-            Gizmos.DrawLine(fcs[i].farCorners[3], fcs[i].farCorners[0]);
+            Gizmos.DrawLine(fcs.farCorners[0], fcs.farCorners[1]);
+            Gizmos.DrawLine(fcs.farCorners[1], fcs.farCorners[2]);
+            Gizmos.DrawLine(fcs.farCorners[2], fcs.farCorners[3]);
+            Gizmos.DrawLine(fcs.farCorners[3], fcs.farCorners[0]);
 
-            Gizmos.DrawLine(fcs[i].nearCorners[0], fcs[i].farCorners[0]);
-            Gizmos.DrawLine(fcs[i].nearCorners[1], fcs[i].farCorners[1]);
-            Gizmos.DrawLine(fcs[i].nearCorners[2], fcs[i].farCorners[2]);
-            Gizmos.DrawLine(fcs[i].nearCorners[3], fcs[i].farCorners[3]);
+            Gizmos.DrawLine(fcs.nearCorners[0], fcs.farCorners[0]);
+            Gizmos.DrawLine(fcs.nearCorners[1], fcs.farCorners[1]);
+            Gizmos.DrawLine(fcs.nearCorners[2], fcs.farCorners[2]);
+            Gizmos.DrawLine(fcs.nearCorners[3], fcs.farCorners[3]);
         }
     }
 }
