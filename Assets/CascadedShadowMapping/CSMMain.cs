@@ -1,9 +1,8 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 近远裁面的八个顶点
+///     近远裁面的八个顶点
 /// </summary>
 public struct FrustumCorners
 {
@@ -11,37 +10,37 @@ public struct FrustumCorners
     public Vector3[] farCorners;
 
     /// <summary>
-    /// 近裁面 的中心点
+    ///     近裁面 的中心点
     /// </summary>
     public Vector3 nearCenter => (nearCorners[0] + nearCorners[2]) * 0.5f;
 
     /// <summary>
-    /// 横纵比例
+    ///     横纵比例
     /// </summary>
     public float aspect => Vector3.Magnitude(nearCorners[0] - nearCorners[1]) /
                            Vector3.Magnitude(nearCorners[1] - nearCorners[2]);
 
     /// <summary>
-    /// 视野大小
+    ///     视野大小
     /// </summary>
     public float orthographicSize => Vector3.Magnitude(nearCorners[1] - nearCorners[2]) * 0.5f;
 
     public static FrustumCorners New()
     {
-        FrustumCorners fc = new FrustumCorners()
+        var fc = new FrustumCorners
         {
             nearCorners = new Vector3[4],
-            farCorners = new Vector3[4],
+            farCorners = new Vector3[4]
         };
         return fc;
     }
 
     /// <summary>
-    /// 局部坐标转换到世界坐标
+    ///     局部坐标转换到世界坐标
     /// </summary>
     public void LocalToWorld(Transform ts)
     {
-        for (int i = 0; i < 4; i++)
+        for (var i = 0; i < 4; i++)
         {
             nearCorners[i] = ts.TransformPoint(nearCorners[i]);
             farCorners[i] = ts.TransformPoint(farCorners[i]);
@@ -49,13 +48,13 @@ public struct FrustumCorners
     }
 
     /// <summary>
-    /// 局部坐标转换到世界坐标  返回一个全新的
+    ///     局部坐标转换到世界坐标  返回一个全新的
     /// </summary>
     public FrustumCorners LocalToWorld_New(Transform ts)
     {
-        FrustumCorners fc = New();
+        var fc = New();
 
-        for (int i = 0; i < 4; i++)
+        for (var i = 0; i < 4; i++)
         {
             fc.nearCorners[i] = ts.TransformPoint(nearCorners[i]);
             fc.farCorners[i] = ts.TransformPoint(farCorners[i]);
@@ -65,12 +64,12 @@ public struct FrustumCorners
     }
 
     /// <summary>
-    /// 世界坐标转换到局部坐标
+    ///     世界坐标转换到局部坐标
     /// </summary>
     /// <returns></returns>
     public void WorldToLocal(Transform ts)
     {
-        for (int i = 0; i < 4; i++)
+        for (var i = 0; i < 4; i++)
         {
             nearCorners[i] = ts.InverseTransformPoint(nearCorners[i]);
             farCorners[i] = ts.InverseTransformPoint(farCorners[i]);
@@ -78,14 +77,14 @@ public struct FrustumCorners
     }
 
     /// <summary>
-    /// 世界坐标转换到局部坐标 返回一个全新的
+    ///     世界坐标转换到局部坐标 返回一个全新的
     /// </summary>
     /// <returns></returns>
     public FrustumCorners WorldToLocal_New(Transform ts)
     {
-        FrustumCorners fc = New();
+        var fc = New();
 
-        for (int i = 0; i < 4; i++)
+        for (var i = 0; i < 4; i++)
         {
             fc.nearCorners[i] = ts.InverseTransformPoint(nearCorners[i]);
             fc.farCorners[i] = ts.InverseTransformPoint(farCorners[i]);
@@ -95,7 +94,7 @@ public struct FrustumCorners
     }
 
     /// <summary>
-    /// 重新计算 生成一个包裹裁面的最大的矩形框
+    ///     重新计算 生成一个包裹裁面的最大的矩形框
     /// </summary>
     public void RecalcBox()
     {
@@ -123,14 +122,14 @@ public struct FrustumCorners
             farCorners[2].z, farCorners[3].z
         };
 
-        float minX = Mathf.Min(xs);
-        float maxX = Mathf.Max(xs);
+        var minX = Mathf.Min(xs);
+        var maxX = Mathf.Max(xs);
 
-        float minY = Mathf.Min(ys);
-        float maxY = Mathf.Max(ys);
+        var minY = Mathf.Min(ys);
+        var maxY = Mathf.Max(ys);
 
-        float minZ = Mathf.Min(zs);
-        float maxZ = Mathf.Max(zs);
+        var minZ = Mathf.Min(zs);
+        var maxZ = Mathf.Max(zs);
 
         nearCorners[0] = new Vector3(minX, minY, minZ);
         nearCorners[1] = new Vector3(maxX, minY, minZ);
@@ -147,48 +146,51 @@ public struct FrustumCorners
 public class CSMMain : MonoBehaviour
 {
     /// <summary>
-    /// 阴影分几个等级
+    ///     阴影分几个等级
     /// </summary>
     private const int lodLevel = 4;
 
     /// <summary>
-    /// Unity的QualitySettings里提供了对相机视锥的分割设置
+    ///     Unity的QualitySettings里提供了对相机视锥的分割设置
     /// </summary>
     private readonly float[] lodSplits = {0, 0.067f, 0.133f, 0.267f, 0.533f};
 
+    private readonly RenderTexture[] depthTextures = new RenderTexture[4];
+
     /// <summary>
-    /// 灯光
+    ///     灯光
     /// </summary>
     public Light dirLight;
 
+    /// <summary>
+    /// 摄像机深度Shader
+    /// </summary>
+    public Shader shadowCaster;
 
-    public Shader shadowCaster = null;
+    private Camera dirLightCamera;
 
     /// <summary>
-    /// 计算shadowmap阴影用的矩阵
+    ///     灯光的分割物们,放在近裁面中心点
+    /// </summary>
+    private readonly Transform[] dirLightSplitTss = new Transform[4];
+
+    /// <summary>
+    ///     主摄像机和灯光摄像机 的两个裁面
+    /// </summary>
+    private FrustumCorners[] mainCamera_fcs, lightCamera_fcs;
+
+
+    /// <summary>
+    ///     计算shadowmap阴影用的矩阵
     /// </summary>
     private Matrix4x4 shadowMapMatrix = Matrix4x4.identity;
 
     /// <summary>
-    /// 主摄像机和灯光摄像机 的两个裁面
+    ///     Lod存的世界空间到阴影的矩阵
     /// </summary>
-    private FrustumCorners[] mainCamera_fcs, lightCamera_fcs;
+    private readonly List<Matrix4x4> world2ShadowMats = new List<Matrix4x4>(4);
 
-    /// <summary>
-    /// 灯光的分割物们,放在近裁面中心点
-    /// </summary>
-    private Transform[] dirLightSplitTss = new Transform[4];
-
-    /// <summary>
-    /// Lod存的世界空间到阴影的矩阵
-    /// </summary>
-    private List<Matrix4x4> world2ShadowMats = new List<Matrix4x4>(4);
-
-    private Camera dirLightCamera;
-    private RenderTexture[] depthTextures = new RenderTexture[4];
-    private float[] splitNears, splitsFars;
-
-    void Awake()
+    private void Awake()
     {
         shadowMapMatrix.SetRow(0, new Vector4(0.5f, 0, 0, 0.5f));
         shadowMapMatrix.SetRow(1, new Vector4(0, 0.5f, 0, 0.5f));
@@ -196,27 +198,26 @@ public class CSMMain : MonoBehaviour
         shadowMapMatrix.SetRow(3, new Vector4(0, 0, 0, 1f));
 
         InitFrustumCorners();
+
+        InitMainCameraFCS();
+
+
+        dirLightCamera = CreateDirLightCamera();
+
+        CreateRenderTexture();
     }
 
     private void Update()
     {
-        InitMainCameraFCS();
-        InitLightCameraSplitFCS();
+        UpdateCameraSplitFCS();
 
         if (dirLight)
         {
-            if (!dirLightCamera)
-            {
-                dirLightCamera = CreateDirLightCamera();
-
-                CreateRenderTexture();
-            }
-
             Shader.SetGlobalFloat("_gShadowBias", 0.005f);
             Shader.SetGlobalFloat("_gShadowStrength", 0.5f);
 
             world2ShadowMats.Clear();
-            for (int i = 0; i < 4; i++)
+            for (var i = 0; i < 4; i++)
             {
                 SetLightCameraLod(i);
 
@@ -225,7 +226,7 @@ public class CSMMain : MonoBehaviour
                 dirLightCamera.RenderWithShader(shadowCaster, "");
 
                 //投影矩阵转换到相距下面
-                Matrix4x4 projectionMatrix = GL.GetGPUProjectionMatrix(dirLightCamera.projectionMatrix, false);
+                var projectionMatrix = GL.GetGPUProjectionMatrix(dirLightCamera.projectionMatrix, false);
                 world2ShadowMats.Add(projectionMatrix * dirLightCamera.worldToCameraMatrix);
             }
 
@@ -233,28 +234,24 @@ public class CSMMain : MonoBehaviour
         }
     }
 
-    void OnDestroy()
+    private void OnDestroy()
     {
         dirLightCamera = null;
 
-        for (int i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++)
             if (depthTextures[i])
-            {
                 DestroyImmediate(depthTextures[i]);
-            }
-        }
     }
 
 
     /// <summary>
-    /// 创建两个摄像机的裁面顶点数组
+    ///     创建两个摄像机的裁面顶点数组
     /// </summary>
     private void InitFrustumCorners()
     {
         mainCamera_fcs = new FrustumCorners[lodLevel];
         lightCamera_fcs = new FrustumCorners[lodLevel];
-        for (int i = 0; i < lodLevel; i++)
+        for (var i = 0; i < lodLevel; i++)
         {
             mainCamera_fcs[i] = FrustumCorners.New();
             lightCamera_fcs[i] = FrustumCorners.New();
@@ -262,13 +259,13 @@ public class CSMMain : MonoBehaviour
     }
 
     /// <summary>
-    /// 创建RT
+    ///     创建RT
     /// </summary>
     private void CreateRenderTexture()
     {
-        RenderTextureFormat rtFormat = RenderTextureFormat.Default;
+        var rtFormat = RenderTextureFormat.Default;
 
-        for (int i = 0; i < lodLevel; i++)
+        for (var i = 0; i < lodLevel; i++)
         {
             depthTextures[i] = new RenderTexture(1024, 1024, 24, rtFormat);
             Shader.SetGlobalTexture("_gShadowMapTexture" + i, depthTextures[i]);
@@ -276,12 +273,12 @@ public class CSMMain : MonoBehaviour
     }
 
     /// <summary>
-    /// 创建灯光Camera
+    ///     创建灯光Camera
     /// </summary>
     public Camera CreateDirLightCamera()
     {
-        GameObject goLightCamera = new GameObject("Directional Light Camera");
-        Camera LightCamera = goLightCamera.AddComponent<Camera>();
+        var goLightCamera = new GameObject("Directional Light Camera");
+        var LightCamera = goLightCamera.AddComponent<Camera>();
 
         LightCamera.cullingMask = 1 << LayerMask.NameToLayer("Caster");
         LightCamera.backgroundColor = Color.white;
@@ -289,29 +286,26 @@ public class CSMMain : MonoBehaviour
         LightCamera.orthographic = true;
         LightCamera.enabled = false;
 
-        for (int i = 0; i < lodLevel; i++)
-        {
-            dirLightSplitTss[i] = new GameObject("SplitGo_" + i).transform;
-        }
+        for (var i = 0; i < lodLevel; i++) dirLightSplitTss[i] = new GameObject("SplitGo_" + i).transform;
 
         return LightCamera;
     }
 
     /// <summary>
-    /// 初始化主摄像机的裁面顶点
+    ///     初始化主摄像机的裁面顶点
     /// </summary>
-    void InitMainCameraFCS()
+    private void InitMainCameraFCS()
     {
         var mainCamera = Camera.main;
 
-        splitNears = new float[lodLevel];
-        splitsFars = new float[lodLevel];
+        var splitNears = new float[lodLevel];
+        var splitsFars = new float[lodLevel];
 
-        float near = mainCamera.nearClipPlane;
-        float far = mainCamera.farClipPlane;
+        var near = mainCamera.nearClipPlane;
+        var far = mainCamera.farClipPlane;
 
         float amount = 0;
-        for (int i = 0; i < lodLevel; i++)
+        for (var i = 0; i < lodLevel; i++)
         {
             amount += lodSplits[i];
             splitNears[i] = Mathf.Lerp(near, far, amount);
@@ -323,7 +317,7 @@ public class CSMMain : MonoBehaviour
         Shader.SetGlobalVector("_gLightSplitsFar",
             new Vector4(splitsFars[0], splitsFars[1], splitsFars[2], splitsFars[3]));
 
-        for (int i = 0; i < lodLevel; i++)
+        for (var i = 0; i < lodLevel; i++)
         {
             mainCamera.CalculateFrustumCorners(new Rect(0, 0, 1, 1), splitNears[i],
                 Camera.MonoOrStereoscopicEye.Mono, mainCamera_fcs[i].nearCorners);
@@ -335,14 +329,14 @@ public class CSMMain : MonoBehaviour
     }
 
     /// <summary>
-    /// 初始化阴影包围盒
+    ///     初始化阴影包围盒
     /// </summary>
-    void InitLightCameraSplitFCS()
+    private void UpdateCameraSplitFCS()
     {
         if (dirLightCamera == null)
             return;
 
-        for (int i = 0; i < 4; i++)
+        for (var i = 0; i < 4; i++)
         {
             var splitTs = dirLightSplitTss[i];
 
@@ -356,10 +350,10 @@ public class CSMMain : MonoBehaviour
     }
 
     /// <summary>
-    /// 设置灯光阴影相机用哪个Lod
+    ///     设置灯光阴影相机用哪个Lod
     /// </summary>
     /// <param name="index"></param>
-    void SetLightCameraLod(int index)
+    private void SetLightCameraLod(int index)
     {
         dirLightCamera.transform.position = dirLightSplitTss[index].position;
         dirLightCamera.transform.rotation = dirLightSplitTss[index].rotation;
@@ -373,12 +367,12 @@ public class CSMMain : MonoBehaviour
     }
 
 
-    void OnDrawGizmos()
+    private void OnDrawGizmos()
     {
         if (dirLightCamera == null)
             return;
 
-        for (int i = 0; i < lodLevel; i++)
+        for (var i = 0; i < lodLevel; i++)
         {
             Gizmos.color = Color.white;
             Gizmos.DrawLine(mainCamera_fcs[i].nearCorners[1], mainCamera_fcs[i].nearCorners[2]);
